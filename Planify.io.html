@@ -1,0 +1,814 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Planner — Calendar & Task Dashboard</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:          #0f1117;
+    --surface:     #181c27;
+    --surface2:    #1e2333;
+    --border:      #2a2f42;
+    --accent:      #6c63ff;
+    --accent-glow: rgba(108,99,255,0.18);
+    --accent2:     #ff6584;
+    --text:        #e8eaf0;
+    --text-dim:    #7b8199;
+    --text-faint:  #3d4260;
+    --today-ring:  #6c63ff;
+    --badge-bg:    #ff6584;
+    --green:       #43e97b;
+    --font-sans:   'Inter', system-ui, sans-serif;
+    --font-mono:   'DM Mono', monospace;
+    --radius:      12px;
+    --radius-sm:   7px;
+  }
+
+  html, body {
+    height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-sans);
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  /* ── Layout ─────────────────────────────── */
+  .app {
+    display: grid;
+    grid-template-rows: 56px 1fr;
+    grid-template-columns: 1fr;
+    min-height: 100vh;
+  }
+
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 28px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 700;
+    font-size: 15px;
+    letter-spacing: -0.3px;
+  }
+
+  .brand-icon {
+    width: 28px; height: 28px;
+    background: var(--accent);
+    border-radius: 7px;
+    display: grid;
+    place-items: center;
+    font-size: 14px;
+  }
+
+  .header-meta {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--text-dim);
+    letter-spacing: 0.5px;
+  }
+
+  .main-grid {
+    display: grid;
+    grid-template-columns: 1fr 380px;
+    gap: 0;
+    overflow: hidden;
+    height: calc(100vh - 56px);
+  }
+
+  /* ── Calendar Panel ──────────────────────── */
+  .calendar-panel {
+    padding: 28px 32px;
+    overflow-y: auto;
+    border-right: 1px solid var(--border);
+  }
+
+  .cal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 28px;
+  }
+
+  .cal-month-label {
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+  }
+
+  .cal-year {
+    color: var(--accent);
+  }
+
+  .nav-btns {
+    display: flex;
+    gap: 6px;
+  }
+
+  .nav-btn {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    width: 34px; height: 34px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-size: 15px;
+    display: grid;
+    place-items: center;
+    transition: background 0.15s, border-color 0.15s;
+  }
+
+  .nav-btn:hover {
+    background: var(--accent);
+    border-color: var(--accent);
+  }
+
+  .weekday-row {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    margin-bottom: 8px;
+  }
+
+  .weekday-label {
+    text-align: center;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text-dim);
+    letter-spacing: 1px;
+    padding: 6px 0;
+    text-transform: uppercase;
+  }
+
+  .cal-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 5px;
+  }
+
+  .cal-cell {
+    aspect-ratio: 1;
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+    border: 1px solid transparent;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    position: relative;
+    transition: background 0.12s, border-color 0.12s, transform 0.1s;
+    min-height: 56px;
+  }
+
+  .cal-cell:hover:not(.empty) {
+    background: var(--surface2);
+    border-color: var(--border);
+    transform: translateY(-1px);
+  }
+
+  .cal-cell.empty {
+    background: transparent;
+    cursor: default;
+  }
+
+  .cal-cell.today {
+    border-color: var(--today-ring);
+    background: var(--accent-glow);
+  }
+
+  .cal-cell.selected {
+    background: var(--accent);
+    border-color: var(--accent);
+  }
+
+  .cal-cell.selected .day-num { color: #fff; }
+
+  .day-num {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  .cal-cell.empty .day-num { color: var(--text-faint); }
+
+  .task-badge {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    background: var(--badge-bg);
+    color: #fff;
+    font-size: 9px;
+    font-weight: 700;
+    font-family: var(--font-mono);
+    width: 17px; height: 17px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    line-height: 1;
+  }
+
+  .cal-cell.selected .task-badge {
+    background: rgba(255,255,255,0.3);
+  }
+
+  /* ── Month summary strip ─────────────────── */
+  .month-summary {
+    margin-top: 24px;
+    display: flex;
+    gap: 16px;
+  }
+
+  .summary-chip {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 10px 16px;
+    flex: 1;
+  }
+
+  .summary-chip .chip-val {
+    font-size: 22px;
+    font-weight: 700;
+    font-family: var(--font-mono);
+    color: var(--accent);
+  }
+
+  .summary-chip .chip-label {
+    font-size: 11px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    margin-top: 2px;
+  }
+
+  /* ── Task Panel ──────────────────────────── */
+  .task-panel {
+    display: flex;
+    flex-direction: column;
+    background: var(--surface);
+    overflow: hidden;
+  }
+
+  .task-panel-header {
+    padding: 22px 24px 16px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+
+  .task-date-label {
+    font-size: 11px;
+    font-family: var(--font-mono);
+    color: var(--accent);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+
+  .task-panel-title {
+    font-size: 17px;
+    font-weight: 700;
+    letter-spacing: -0.3px;
+  }
+
+  /* Add form */
+  .add-form {
+    padding: 16px 24px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    flex-shrink: 0;
+  }
+
+  .form-row {
+    display: flex;
+    gap: 8px;
+  }
+
+  .input-wrap {
+    position: relative;
+    flex: 1;
+  }
+
+  .input-wrap label {
+    display: block;
+    font-size: 10px;
+    font-family: var(--font-mono);
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    margin-bottom: 5px;
+  }
+
+  .field {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text);
+    font-family: var(--font-sans);
+    font-size: 13px;
+    padding: 8px 11px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+
+  .field:focus {
+    border-color: var(--accent);
+  }
+
+  input[type="time"].field {
+    font-family: var(--font-mono);
+    cursor: pointer;
+  }
+
+  input[type="time"].field::-webkit-calendar-picker-indicator {
+    filter: invert(0.5);
+    cursor: pointer;
+  }
+
+  .add-btn {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: var(--radius-sm);
+    padding: 9px 18px;
+    font-family: var(--font-sans);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    align-self: flex-end;
+    transition: opacity 0.15s, transform 0.1s;
+  }
+
+  .add-btn:hover { opacity: 0.88; transform: translateY(-1px); }
+  .add-btn:active { transform: translateY(0); }
+
+  /* Task list */
+  .task-list-wrap {
+    flex: 1;
+    overflow-y: auto;
+    padding: 14px 24px 20px;
+  }
+
+  .task-list-wrap::-webkit-scrollbar { width: 4px; }
+  .task-list-wrap::-webkit-scrollbar-track { background: transparent; }
+  .task-list-wrap::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+  .empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    gap: 10px;
+    color: var(--text-faint);
+  }
+
+  .empty-state .empty-icon { font-size: 36px; }
+  .empty-state p { font-size: 13px; text-align: center; line-height: 1.6; }
+
+  .task-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border);
+    animation: slideIn 0.18s ease;
+  }
+
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .task-item:last-child { border-bottom: none; }
+
+  .task-time-pill {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 4px 9px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--accent);
+    white-space: nowrap;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+
+  .task-body {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .task-title-text {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text);
+    word-break: break-word;
+  }
+
+  .task-del-btn {
+    background: none;
+    border: none;
+    color: var(--text-faint);
+    cursor: pointer;
+    font-size: 13px;
+    padding: 2px 4px;
+    border-radius: 4px;
+    flex-shrink: 0;
+    transition: color 0.15s, background 0.15s;
+    line-height: 1;
+  }
+
+  .task-del-btn:hover {
+    color: var(--accent2);
+    background: rgba(255,101,132,0.12);
+  }
+
+  /* Timeline accent line */
+  .task-list-wrap .timeline-wrap {
+    position: relative;
+  }
+
+  /* Scrollbar for calendar */
+  .calendar-panel::-webkit-scrollbar { width: 4px; }
+  .calendar-panel::-webkit-scrollbar-track { background: transparent; }
+  .calendar-panel::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+  /* Toast */
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 10px 20px;
+    border-radius: var(--radius);
+    font-size: 13px;
+    opacity: 0;
+    transition: opacity 0.2s, transform 0.2s;
+    pointer-events: none;
+    z-index: 999;
+    white-space: nowrap;
+  }
+
+  .toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+
+  /* Responsiveness */
+  @media (max-width: 768px) {
+    .main-grid {
+      grid-template-columns: 1fr;
+      grid-template-rows: auto 1fr;
+      height: auto;
+      overflow: visible;
+    }
+    .calendar-panel { border-right: none; border-bottom: 1px solid var(--border); }
+    .task-panel { min-height: 400px; }
+    .app { grid-template-rows: 56px auto; }
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <header>
+    <div class="brand">
+      <div class="brand-icon">📅</div>
+      Planner
+    </div>
+    <div class="header-meta" id="live-clock"></div>
+  </header>
+
+  <div class="main-grid">
+
+    <!-- LEFT: Calendar -->
+    <section class="calendar-panel">
+      <div class="cal-header">
+        <div class="cal-month-label">
+          <span id="cal-month-name"></span>&nbsp;<span class="cal-year" id="cal-year"></span>
+        </div>
+        <div class="nav-btns">
+          <button class="nav-btn" id="prev-month" title="Previous month">◀</button>
+          <button class="nav-btn" id="next-month" title="Next month">▶</button>
+        </div>
+      </div>
+
+      <div class="weekday-row">
+        <div class="weekday-label">Sun</div>
+        <div class="weekday-label">Mon</div>
+        <div class="weekday-label">Tue</div>
+        <div class="weekday-label">Wed</div>
+        <div class="weekday-label">Thu</div>
+        <div class="weekday-label">Fri</div>
+        <div class="weekday-label">Sat</div>
+      </div>
+
+      <div class="cal-grid" id="cal-grid"></div>
+
+      <div class="month-summary">
+        <div class="summary-chip">
+          <div class="chip-val" id="stat-days">0</div>
+          <div class="chip-label">Days with tasks</div>
+        </div>
+        <div class="summary-chip">
+          <div class="chip-val" id="stat-total">0</div>
+          <div class="chip-label">Total tasks this month</div>
+        </div>
+        <div class="summary-chip">
+          <div class="chip-val" id="stat-today">0</div>
+          <div class="chip-label">Today's tasks</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- RIGHT: Task Planner -->
+    <section class="task-panel">
+      <div class="task-panel-header">
+        <div class="task-date-label" id="task-date-label">Select a date</div>
+        <div class="task-panel-title" id="task-panel-title">Daily Scheduler</div>
+      </div>
+
+      <div class="add-form">
+        <div class="form-row">
+          <div class="input-wrap" style="flex:0 0 120px">
+            <label for="task-time">Time</label>
+            <input class="field" type="time" id="task-time" value="09:00">
+          </div>
+          <div class="input-wrap">
+            <label for="task-title">Task</label>
+            <input class="field" type="text" id="task-title" placeholder="e.g. Team standup call" maxlength="120">
+          </div>
+        </div>
+        <button class="add-btn" id="add-task-btn">+ Add Task</button>
+      </div>
+
+      <div class="task-list-wrap" id="task-list-wrap">
+        <div class="empty-state" id="empty-state">
+          <div class="empty-icon">🗂️</div>
+          <p>No tasks yet for this day.<br>Add one above to get started.</p>
+        </div>
+        <div class="timeline-wrap" id="task-list"></div>
+      </div>
+    </section>
+
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  /* ── State ─────────────────────────────────── */
+  const STORE_KEY = 'planner_tasks_v1';
+  let tasks = {};   // { "YYYY-MM-DD": [{id, time, title}, ...] }
+
+  const now = new Date();
+  let viewYear  = 2026;
+  let viewMonth = 5;   // 0-indexed: 5 = June
+  let selectedDate = dateKey(now);  // default to today
+
+  /* ── Persistence ────────────────────────────── */
+  function loadTasks() {
+    try { tasks = JSON.parse(localStorage.getItem(STORE_KEY) || '{}'); }
+    catch { tasks = {}; }
+  }
+
+  function saveTasks() {
+    localStorage.setItem(STORE_KEY, JSON.stringify(tasks));
+  }
+
+  function dateKey(d) {
+    const y = d.getFullYear();
+    const m = String(d.getMonth()+1).padStart(2,'0');
+    const day = String(d.getDate()).padStart(2,'0');
+    return `${y}-${m}-${day}`;
+  }
+
+  /* ── Calendar Render ────────────────────────── */
+  const MONTHS = ['January','February','March','April','May','June',
+                  'July','August','September','October','November','December'];
+
+  function renderCalendar() {
+    const grid = document.getElementById('cal-grid');
+    grid.innerHTML = '';
+
+    document.getElementById('cal-month-name').textContent = MONTHS[viewMonth];
+    document.getElementById('cal-year').textContent = viewYear;
+
+    const firstDay = new Date(viewYear, viewMonth, 1).getDay();
+    const daysInMonth = new Date(viewYear, viewMonth+1, 0).getDate();
+
+    // Padding cells
+    for (let i = 0; i < firstDay; i++) {
+      const cell = document.createElement('div');
+      cell.className = 'cal-cell empty';
+      grid.appendChild(cell);
+    }
+
+    for (let d = 1; d <= daysInMonth; d++) {
+      const key = `${viewYear}-${String(viewMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+      const cell = document.createElement('div');
+      cell.className = 'cal-cell';
+      cell.dataset.key = key;
+
+      const numEl = document.createElement('div');
+      numEl.className = 'day-num';
+      numEl.textContent = d;
+      cell.appendChild(numEl);
+
+      // Today highlight
+      const todayKey = dateKey(now);
+      if (key === todayKey) cell.classList.add('today');
+      if (key === selectedDate) cell.classList.add('selected');
+
+      // Badge
+      const dayTasks = tasks[key];
+      if (dayTasks && dayTasks.length > 0) {
+        const badge = document.createElement('div');
+        badge.className = 'task-badge';
+        badge.textContent = dayTasks.length > 9 ? '9+' : dayTasks.length;
+        cell.appendChild(badge);
+      }
+
+      cell.addEventListener('click', () => selectDate(key));
+      grid.appendChild(cell);
+    }
+
+    renderStats();
+  }
+
+  function renderStats() {
+    const prefix = `${viewYear}-${String(viewMonth+1).padStart(2,'0')}-`;
+    const monthKeys = Object.keys(tasks).filter(k => k.startsWith(prefix));
+    const daysWithTasks = monthKeys.filter(k => tasks[k] && tasks[k].length > 0).length;
+    const totalTasks = monthKeys.reduce((s,k) => s + (tasks[k]?.length||0), 0);
+    const todayKey = dateKey(now);
+    const todayCount = (tasks[todayKey]||[]).length;
+
+    document.getElementById('stat-days').textContent  = daysWithTasks;
+    document.getElementById('stat-total').textContent = totalTasks;
+    document.getElementById('stat-today').textContent = todayCount;
+  }
+
+  /* ── Date Selection ─────────────────────────── */
+  function selectDate(key) {
+    selectedDate = key;
+    renderCalendar();
+    renderTaskPanel();
+  }
+
+  /* ── Task Panel Render ──────────────────────── */
+  function renderTaskPanel() {
+    const [y, m, d] = selectedDate.split('-');
+    const dateObj = new Date(+y, +m-1, +d);
+    const label = dateObj.toLocaleDateString('en-US', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
+
+    document.getElementById('task-date-label').textContent =
+      selectedDate === dateKey(now) ? '— Today —' : '— Selected —';
+    document.getElementById('task-panel-title').textContent = label;
+
+    const list = document.getElementById('task-list');
+    const empty = document.getElementById('empty-state');
+    list.innerHTML = '';
+
+    const dayTasks = (tasks[selectedDate] || []).slice().sort((a,b) => a.time.localeCompare(b.time));
+
+    if (dayTasks.length === 0) {
+      empty.style.display = 'flex';
+    } else {
+      empty.style.display = 'none';
+      dayTasks.forEach(t => {
+        const item = document.createElement('div');
+        item.className = 'task-item';
+
+        const pill = document.createElement('div');
+        pill.className = 'task-time-pill';
+        pill.textContent = formatTime(t.time);
+
+        const body = document.createElement('div');
+        body.className = 'task-body';
+
+        const title = document.createElement('div');
+        title.className = 'task-title-text';
+        title.textContent = t.title;
+
+        body.appendChild(title);
+
+        const del = document.createElement('button');
+        del.className = 'task-del-btn';
+        del.textContent = '❌';
+        del.title = 'Remove task';
+        del.addEventListener('click', () => deleteTask(selectedDate, t.id));
+
+        item.appendChild(pill);
+        item.appendChild(body);
+        item.appendChild(del);
+        list.appendChild(item);
+      });
+    }
+  }
+
+  function formatTime(t) {
+    // t is "HH:MM"
+    const [hh, mm] = t.split(':');
+    const h = parseInt(hh);
+    const suffix = h >= 12 ? 'PM' : 'AM';
+    const h12 = h % 12 === 0 ? 12 : h % 12;
+    return `${String(h12).padStart(2,'0')}:${mm} ${suffix}`;
+  }
+
+  /* ── CRUD ───────────────────────────────────── */
+  function addTask() {
+    const timeEl  = document.getElementById('task-time');
+    const titleEl = document.getElementById('task-title');
+    const time  = timeEl.value.trim();
+    const title = titleEl.value.trim();
+
+    if (!time)  { showToast('Please pick a time.'); timeEl.focus(); return; }
+    if (!title) { showToast('Please enter a task title.'); titleEl.focus(); return; }
+
+    if (!tasks[selectedDate]) tasks[selectedDate] = [];
+    tasks[selectedDate].push({ id: Date.now().toString(36), time, title });
+    saveTasks();
+
+    titleEl.value = '';
+    titleEl.focus();
+    renderCalendar();
+    renderTaskPanel();
+    showToast('Task added ✓');
+  }
+
+  function deleteTask(dateK, id) {
+    if (!tasks[dateK]) return;
+    tasks[dateK] = tasks[dateK].filter(t => t.id !== id);
+    if (tasks[dateK].length === 0) delete tasks[dateK];
+    saveTasks();
+    renderCalendar();
+    renderTaskPanel();
+  }
+
+  /* ── Navigation ─────────────────────────────── */
+  document.getElementById('prev-month').addEventListener('click', () => {
+    viewMonth--;
+    if (viewMonth < 0) { viewMonth = 11; viewYear--; }
+    renderCalendar();
+  });
+
+  document.getElementById('next-month').addEventListener('click', () => {
+    viewMonth++;
+    if (viewMonth > 11) { viewMonth = 0; viewYear++; }
+    renderCalendar();
+  });
+
+  /* ── Add task triggers ──────────────────────── */
+  document.getElementById('add-task-btn').addEventListener('click', addTask);
+  document.getElementById('task-title').addEventListener('keydown', e => {
+    if (e.key === 'Enter') addTask();
+  });
+
+  /* ── Live Clock ─────────────────────────────── */
+  function updateClock() {
+    const n = new Date();
+    document.getElementById('live-clock').textContent =
+      n.toLocaleTimeString('en-US', { hour:'2-digit', minute:'2-digit', second:'2-digit' });
+  }
+  updateClock();
+  setInterval(updateClock, 1000);
+
+  /* ── Toast ──────────────────────────────────── */
+  let toastTimer;
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.classList.remove('show'), 2200);
+  }
+
+  /* ── Boot ───────────────────────────────────── */
+  loadTasks();
+  renderCalendar();
+  renderTaskPanel();
+</script>
+</body>
+</html>
